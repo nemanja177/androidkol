@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -18,6 +19,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Button;
@@ -33,6 +35,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
@@ -90,6 +93,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
         dbHelper = new SQLiteHelper(this);
+        sharedPreferences = getSharedPreferences("Kolokvijum2Prefs", Context.MODE_PRIVATE);
         
         checkPermissionsAndRequestLocation();
         cameraLauncher = registerForActivityResult(
@@ -142,6 +146,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             Toast.makeText(MainActivity.this, "Prvi post: " + prviPost.getTitle(), Toast.LENGTH_SHORT).show();
                         }
                     }
+                } else {
+                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    editor.putString("tekst", tvLokacija.getText().toString());
+                    editor.apply();
+
+                    proveriIPrikaziPrviKontakt();
                 }
             }
         });
@@ -340,6 +350,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (notificationManager != null) {
                 notificationManager.createNotificationChannel(channel);
             }
+        }
+    }
+
+    private void proveriIPrikaziPrviKontakt() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            Cursor cursor = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI, null, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
+                if (nameIndex >= 0) {
+                    String imeKontakta = cursor.getString(nameIndex);
+                    tvLokacija.setText(imeKontakta);
+                }
+                cursor.close();
+            } else {
+                tvLokacija.setText("Nema kontakata");
+            }
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CONTACTS}, 102);
         }
     }
 }
